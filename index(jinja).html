@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bike tracker</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        /* Center the content vertically and horizontally */
+        body {
+            background-color: rgb(24, 26, 27);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+        }
+
+        
+        #map {
+            height: 1000px;
+            width: 1000px;
+            border: 5px solid gray;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bike tracker</h1>
+    <!-- Form to enter the date and time -->
+    <p>Enter the date and time:</p>
+    <form action="/" method="post">
+        <input type="datetime-local" id="bikedate" name="bikedate" required>
+        <button type="submit">Submit</button>
+    </form>
+    <!-- Container for the map -->
+    <div id="map"></div>
+    <!-- Leaflet.js library for interactive maps -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Coordinates for the bike location
+        var bikeLat = {{bikelat}};
+        var bikeLng = {{bikelng}};
+        var bikedate = new Date({{bikeyear}}, {{bikemonth}}, {{bikeday}}, {{bikehour}}, {{bikeminute}});
+
+        // Initialize the map and set its view to the bike location
+        var map = L.map('map').setView([bikeLat, bikeLng], 13);
+
+        // Add OpenStreetMap tiles to the map
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Add a marker for the bike location
+        var bikeMarker = L.marker([bikeLat, bikeLng]).addTo(map)
+            .bindPopup('Bike (' + bikeLat + ', ' + bikeLng + ')<br>date: ' + bikedate)
+            .openPopup();
+
+        // Check if geolocation is supported
+        if (navigator.geolocation) {
+            // Get the user's current position
+            navigator.geolocation.getCurrentPosition(function(position) {
+                var userLat = position.coords.latitude;
+                var userLng = position.coords.longitude;
+
+                // Add a marker for the user's location
+                var userMarker = L.marker([userLat, userLng]).addTo(map)
+                    .bindPopup('Your location (' + userLat + ', ' + userLng + ')')
+                    .openPopup();
+
+                // Adjust the map view to fit both the bike and user locations
+                var bounds = L.latLngBounds([
+                    [bikeLat, bikeLng],
+                    [userLat, userLng]
+                ]);
+                map.fitBounds(bounds);
+            });
+        } else {
+            // Alert the user if geolocation is not supported
+            alert("Geolocation is not supported by this browser.");
+        }
+    </script>
+</body>
+</html>
