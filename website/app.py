@@ -1,3 +1,4 @@
+from flask import json
 from flask import Flask, render_template, request,redirect
 import datetime
 import database as db
@@ -34,8 +35,18 @@ def index_post():
          return render_template("index.html", bikelat=bikelat, bikelng=bikelng, bikeyear=bikeyear, bikemonth=bikemonth, bikeday=bikeday, bikehour=bikehour, bikeminute=bikeminute)
      return redirect("/")
      
-
-     
+@app.route("/receivedata", methods=["POST"])     
+def receiveDataPost():
+     data = request.get_json()
+     db.new_bike(data["lat"], data["lng"], datetime.datetime.now())
+     resdata = dict()
+     resdata["success"] = "success"
+     response = app.response_class(
+        response=json.dumps(resdata),
+        status=200,
+        mimetype='application/json'
+     )
+     return response
 
 if __name__ == "__main__":
      app.run(host="0.0.0.0", port=80, debug=True)
