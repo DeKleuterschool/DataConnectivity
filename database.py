@@ -23,7 +23,7 @@ class Bike(base, Bewerking):
     __tablename__='bike'
     lat = Column(REAL)
     lng = Column(REAL)
-    date = Column()
+    date = Column(TEXT)
     
     def __init__(self, lat, lng, date):
         self.lat = lat
@@ -47,7 +47,3 @@ def get_bike(date):
     
 if __name__ == "__main__":
     base.metadata.create_all(engine)
-
-    new_bike(53.2194, 6.5665, datetime.datetime(2025, 1, 6, 14, 20))
-    new_bike(54.2194, 6.5665, datetime.datetime(2025, 1, 6, 15, 20))
-    new_bike(55.2194, 6.5665, datetime.datetime(2025, 1, 7, 16, 20))
