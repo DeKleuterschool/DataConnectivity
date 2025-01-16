@@ -8,13 +8,16 @@ unsigned long lastConnectTime = 0;  // Tijd van laatste poging tot verbinden
 const unsigned long connectInterval = 10000;  // 10 seconden interval voor proberen verbinding te maken
 int updateCount = 0;  // Teller voor aantal updates
 
+bool useSerial = true;
+
 // GPS en NB-IoT variabelen
 const char apn[] = "iot.1nce.net";  // Vervang door de APN van je provider
 const char user[] = "";  // Laat leeg als er geen gebruikersnaam is
 const char pass[] = "";  // Laat leeg als er geen wachtwoord is
+const char pin[] = "";
 
-NB nbAccess;
-NBClient nbClient;
+NB nbAccess(true);
+NBClient nbClient(true);
 
 // LED pinnen
 const int internetLedPin = 6;  // Rode LED voor internet
@@ -28,66 +31,60 @@ unsigned long lastGpsBlinkTime = 0; // Tijd van de laatste knipper voor de GPS L
 const unsigned long gpsBlinkInterval = 500; // Interval voor knipperen van de GPS LED (500ms)
 
 void setup() {
+  if(useSerial){
+  Serial.begin(9600);
+  while (!Serial); // Wacht tot de seriële verbinding beschikbaar is
+  Serial.println("Starten van GPS en NB-IoT Test...");
+  }
+
   // Zet de LED's uit bij de start
   pinMode(internetLedPin, OUTPUT);
   pinMode(gpsLedPin, OUTPUT);
-  pinMode(errorLedPin, OUTPUT);  // Zet pin 1 als output voor de extra LED
-  digitalWrite(internetLedPin, LOW);  // Zet de internet LED uit
-  digitalWrite(gpsLedPin, LOW);       // Zet de GPS LED uit
-  digitalWrite(errorLedPin, LOW);     // Zet de error LED uit
+  pinMode(errorLedPin, OUTPUT);
+  digitalWrite(internetLedPin, LOW);
+  digitalWrite(gpsLedPin, LOW);
+  digitalWrite(errorLedPin, LOW);
 
   // Controleer of de GPS-module correct is aangesloten
+  if(useSerial){
+  Serial.println("Initialiseren van GPS-module...");
+  }
   if (!GPS.begin()) {
+    if(useSerial){
+    Serial.println("Fout: GPS-module kon niet worden geïnitialiseerd. Controleer de verbindingen!");
+    }
+    digitalWrite(errorLedPin, HIGH);
     while (1); // Stop het programma als de module niet werkt
   } else {
+    if(useSerial){
+    Serial.println("GPS-module succesvol geactiveerd.");
+    }
   }
 }
 
 void loop() {
   // Probeer verbinding te maken met het NB-IoT netwerk
-  if (millis() - lastConnectTime >= connectInterval && !connectedToInternet) {
+  if (!connectedToInternet && millis() - lastConnectTime >= connectInterval) {
     lastConnectTime = millis();
-    
-    // Zet de LED's om te knipperen tijdens poging tot verbinding
-    digitalWrite(internetLedPin, HIGH); // LED aan om knipperen te starten
-    delay(500);  // Wacht een korte tijd
-    digitalWrite(internetLedPin, LOW);  // LED uit
-    delay(500);  // Wacht een korte tijd
-
-    /*int status = nbAccess.begin(apn, user, pass);
-    if (status == NB_READY) {
-      connectedToInternet = true;
-      Serial.println("Succesvol verbonden met het internet via NB-IoT.");
-      digitalWrite(internetLedPin, HIGH); // Zet de LED continu aan als verbonden
-      digitalWrite(errorLedPin, LOW);     // Zet de error LED uit bij succes
-    } else {
-      connectedToInternet = false;
-      Serial.println("Fout: Geen verbinding met NB-IoT netwerk.");
-      digitalWrite(internetLedPin, LOW);  // Zet de LED uit als de verbinding mislukt
-      digitalWrite(errorLedPin, HIGH);    // Zet de error LED aan als het niet lukt
-    }*/
+    attemptNBConnection();
   }
 
   // Controleer of het tijd is voor een update van GPS
   if (millis() - lastUpdateTime >= updateInterval) {
     lastUpdateTime = millis();
-    updateCount++;  // Verhoog de update-teller
+    updateCount++;
+    if(useSerial){
+    Serial.print("Update #");
+    Serial.println(updateCount);
+
+    // Print de verstreken tijd
+    Serial.print("Verstreken tijd: ");
+    printElapsedTime();
+    Serial.println();
+    }
 
     // Update GPS-data
-    if (GPS.available()) {
-      float latitude = GPS.latitude();
-      float longitude = GPS.longitude();
-
-      if (!isnan(latitude) && !isnan(longitude)) {
-        gpsFix = true;  // GPS-fix gevonden
-        // Zet de GPS LED continu aan bij GPS fix
-        digitalWrite(gpsLedPin, HIGH);  // GPS LED blijft aan bij fix
-      } else {
-        gpsFix = false;  // GPS-fix nog niet gevonden
-      }
-    } else {
-      gpsFix = false;  // Geen GPS data beschikbaar
-    }
+    updateGPSData();
   }
 
   // Blijf knipperen met de GPS LED totdat er een fix is
@@ -97,7 +94,61 @@ void loop() {
   }
 }
 
-/* Functie om de verstreken tijd in minuten en seconden te printen
+// Functie om verbinding te maken met NB-IoT zonder blokkeren
+void attemptNBConnection() {
+  if(useSerial){
+  Serial.println("Probeer verbinding te maken met het NB-IoT netwerk...");
+  }
+  digitalWrite(internetLedPin, LOW); // Zet de LED uit tijdens de verbinding
+  digitalWrite(errorLedPin, LOW); // Zet fout-LED uit
+
+  int status = nbAccess.begin(pin, apn, user, pass); // Begin verbinding
+  if (status == NB_READY) {
+    connectedToInternet = true;
+    if(useSerial){
+    Serial.println("Succesvol verbonden met NB-IoT netwerk!");
+    }
+    digitalWrite(internetLedPin, HIGH); // Zet de internet-LED aan
+  } else {
+    connectedToInternet = false;
+    if(useSerial){
+    Serial.print("Verbinding mislukt. Statuscode: ");
+    }
+    Serial.println(status);
+    digitalWrite(errorLedPin, HIGH); // Zet fout-LED aan
+  }
+}
+
+// Functie om GPS-data bij te werken
+void updateGPSData() {
+  if (GPS.available()) {
+    float latitude = GPS.latitude();
+    float longitude = GPS.longitude();
+
+    if (!isnan(latitude) && !isnan(longitude)) {
+      gpsFix = true;
+      if(useSerial){
+      Serial.print("GPS-fix gevonden: Latitude = ");
+      Serial.print(latitude, 6);
+      Serial.print(", Longitude = ");
+      Serial.println(longitude, 6);
+      }
+      digitalWrite(gpsLedPin, HIGH); // GPS LED blijft aan bij fix
+    } else {
+      gpsFix = false;
+      if(useSerial){
+      Serial.println("Nog geen GPS-fix gevonden.");
+      }
+    }
+  } else {
+    gpsFix = false;
+    if(useSerial){
+    Serial.println("Geen GPS-data beschikbaar.");
+    }
+  }
+}
+
+// Functie om de verstreken tijd in minuten en seconden te printen
 void printElapsedTime() {
   unsigned long elapsedSeconds = millis() / 1000;  // milliseconden naar seconden
   int minutes = elapsedSeconds / 60;                 // Aantal minuten
@@ -117,4 +168,4 @@ void printElapsedTime() {
   } else {
     Serial.print(" seconden");
   }
-}*/
+}
