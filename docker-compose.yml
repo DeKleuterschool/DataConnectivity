@@ -1,0 +1,5 @@
+services:
+  website:
+    build: ./website
+    ports:
+      - "${WEBSITE_EXPOSE_SERVER}:5000"
